@@ -50,24 +50,24 @@ def prepare_data(args):
         ])
 
     # MNIST
-    mnist_trainset     = data_utils.DigitsDataset(data_path="../data/MNIST", channels=1, percent=args.percent, train=True,  transform=transform_mnist)
-    mnist_testset      = data_utils.DigitsDataset(data_path="../data/MNIST", channels=1, percent=args.percent, train=False, transform=transform_mnist)
+    mnist_trainset     = data_utils.DigitsDataset(data_path="../data/digit_data/MNIST", channels=1, percent=args.percent, train=True,  transform=transform_mnist)
+    mnist_testset      = data_utils.DigitsDataset(data_path="../data/digit_data/MNIST", channels=1, percent=args.percent, train=False, transform=transform_mnist)
 
     # SVHN
-    svhn_trainset      = data_utils.DigitsDataset(data_path='../data/SVHN', channels=3, percent=args.percent,  train=True,  transform=transform_svhn)
-    svhn_testset       = data_utils.DigitsDataset(data_path='../data/SVHN', channels=3, percent=args.percent,  train=False, transform=transform_svhn)
+    svhn_trainset      = data_utils.DigitsDataset(data_path='../data/digit_data/SVHN', channels=3, percent=args.percent,  train=True,  transform=transform_svhn)
+    svhn_testset       = data_utils.DigitsDataset(data_path='../data/digit_data/SVHN', channels=3, percent=args.percent,  train=False, transform=transform_svhn)
 
     # USPS
-    usps_trainset      = data_utils.DigitsDataset(data_path='../data/USPS', channels=1, percent=args.percent,  train=True,  transform=transform_usps)
-    usps_testset       = data_utils.DigitsDataset(data_path='../data/USPS', channels=1, percent=args.percent,  train=False, transform=transform_usps)
+    usps_trainset      = data_utils.DigitsDataset(data_path='../data/digit_data/USPS', channels=1, percent=args.percent,  train=True,  transform=transform_usps)
+    usps_testset       = data_utils.DigitsDataset(data_path='../data/digit_data/USPS', channels=1, percent=args.percent,  train=False, transform=transform_usps)
 
     # Synth Digits
-    synth_trainset     = data_utils.DigitsDataset(data_path='../data/SynthDigits/', channels=3, percent=args.percent,  train=True,  transform=transform_synth)
-    synth_testset      = data_utils.DigitsDataset(data_path='../data/SynthDigits/', channels=3, percent=args.percent,  train=False, transform=transform_synth)
+    synth_trainset     = data_utils.DigitsDataset(data_path='../data/digit_data/SynthDigits/', channels=3, percent=args.percent,  train=True,  transform=transform_synth)
+    synth_testset      = data_utils.DigitsDataset(data_path='../data/digit_data/SynthDigits/', channels=3, percent=args.percent,  train=False, transform=transform_synth)
 
     # MNIST-M
-    mnistm_trainset     = data_utils.DigitsDataset(data_path='../data/MNIST_M/', channels=3, percent=args.percent,  train=True,  transform=transform_mnistm)
-    mnistm_testset      = data_utils.DigitsDataset(data_path='../data/MNIST_M/', channels=3, percent=args.percent,  train=False, transform=transform_mnistm)
+    mnistm_trainset     = data_utils.DigitsDataset(data_path='../data/digit_data/MNIST_M/', channels=3, percent=args.percent,  train=True,  transform=transform_mnistm)
+    mnistm_testset      = data_utils.DigitsDataset(data_path='../data/digit_data/MNIST_M/', channels=3, percent=args.percent,  train=False, transform=transform_mnistm)
 
     mnist_train_loader = torch.utils.data.DataLoader(mnist_trainset, batch_size=args.batch, shuffle=True)
     mnist_test_loader  = torch.utils.data.DataLoader(mnist_testset, batch_size=args.batch, shuffle=False)
@@ -202,7 +202,8 @@ if __name__ == '__main__':
     fedavg_train_losses=[]
     fedavg_test_accs=[]
     fedprox_train_losses=[]
-    fedprox_test_accs=[]
+
+    test_accs=[]
 
     print('Device:', device)
     parser = argparse.ArgumentParser()
@@ -211,9 +212,9 @@ if __name__ == '__main__':
     parser.add_argument('--percent', type = float, default= 0.1, help ='percentage of dataset to train')
     parser.add_argument('--lr', type=float, default=1e-2, help='learning rate')
     parser.add_argument('--batch', type = int, default= 32, help ='batch size')
-    parser.add_argument('--iters', type = int, default=2, help = 'iterations for communication')
+    parser.add_argument('--iters', type = int, default=100, help = 'iterations for communication')
     parser.add_argument('--wk_iters', type = int, default=1, help = 'optimization iters in local worker between communication')
-    parser.add_argument('--mode', type = str, default='all', help='fedavg | fedprox | fedbn | all')
+    parser.add_argument('--mode', type = str, default='fedbn', help='fedavg | fedprox | fedbn ')
     parser.add_argument('--mu', type=float, default=1e-2, help='The hyper parameter for fedprox')
     parser.add_argument('--save_path', type = str, default='../checkpoint/digits', help='path to save the checkpoint')
     parser.add_argument('--resume', action='store_true', help ='resume training from the save path checkpoint')
@@ -288,7 +289,7 @@ if __name__ == '__main__':
         resume_iter = 0
    
     # start training
-    args.mode ='fedprox'
+  
     for a_iter in range(resume_iter, args.iters):
         optimizers = [optim.SGD(params=models[idx].parameters(), lr=args.lr) for idx in range(client_num)]
         for wi in range(args.wk_iters):
@@ -327,126 +328,19 @@ if __name__ == '__main__':
             if args.log:
                 logfile.write(' {:<11s}| Test  Loss: {:.4f} | Test  Acc: {:.4f}\n'.format(datasets[test_idx], test_loss, test_acc))
         epoch_test_acc=epoch_test_acc/len(test_loaders)
-        fedprox_test_accs.append(epoch_test_acc)
-        print("fedprox_test_accs: ", fedprox_test_accs)
+        test_accs.append(epoch_test_acc)
+        print("test_accs: ", test_accs)
 
-    args.mode.lower() == 'fedavg'
-    for a_iter in range(resume_iter, args.iters):
-        optimizers = [optim.SGD(params=models[idx].parameters(), lr=args.lr) for idx in range(client_num)]
-        for wi in range(args.wk_iters):
-            print("============ Train epoch {} ============".format(wi + a_iter * args.wk_iters))
-            if args.log: logfile.write("============ Train epoch {} ============\n".format(wi + a_iter * args.wk_iters)) 
-            
-            for client_idx in range(client_num):
-                model1, train_loader1, optimizer1 = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
-                if args.mode.lower() == 'fedprox':
-                    if a_iter > 0:
-                        train_fedprox(args, model1, train_loader, optimizer, loss_fun, client_num, device)
-                    else:
-                        train(model1, train_loader, optimizer, loss_fun, client_num, device)
-                else:
-                    train(model1, train_loader, optimizer, loss_fun, client_num, device)
-         
-        # aggregation
-        server_model, models = communication(args, server_model, models, client_weights)
-        
-        # report after aggregation
-        for client_idx in range(client_num):
-                model1, train_loader1, optimizer1 = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
-                train_loss, train_acc = test(model1, train_loader, loss_fun, device) 
-                print(' {:<11s}| Train Loss: {:.4f} | Train Acc: {:.4f}'.format(datasets[client_idx] ,train_loss, train_acc))
-            
-                if args.log:
-                    logfile.write(' {:<11s}| Train Loss: {:.4f} | Train Acc: {:.4f}\n'.format(datasets[client_idx] ,train_loss, train_acc))
-        
-        epoch_test_acc=0.0
-        # start testing
-        for test_idx, test_loader in enumerate(test_loaders):
-            test_loss, test_acc = test(models[test_idx], test_loader, loss_fun, device)
-            print(' {:<11s}| Test  Loss: {:.4f} | Test  Acc: {:.4f}'.format(datasets[test_idx], test_loss, test_acc))
-            epoch_test_acc+=test_acc
-        
-            if args.log:
-                logfile.write(' {:<11s}| Test  Loss: {:.4f} | Test  Acc: {:.4f}\n'.format(datasets[test_idx], test_loss, test_acc))
-        epoch_test_acc=epoch_test_acc/len(test_loaders)
-        fedavg_test_accs.append(epoch_test_acc)
-        print("fedavg_test_accs: ", fedavg_test_accs)
-        
+   
 
 
-
-
-
-
-    for a in all:
-        print("**************{}**************".format(a))
-        for a_iter in range(resume_iter, args.iters):
-            print("resume iter: ",resume_iter)
-            optimizers = [optim.SGD(params=models[idx].parameters(), lr=args.lr) for idx in range(client_num)]
-            for wi in range(args.wk_iters):
-                print("============ Train epoch {} ============".format(wi + a_iter * args.wk_iters))
-                if args.log: logfile.write("============ Train epoch {} ============\n".format(wi + a_iter * args.wk_iters)) 
-                
-                for client_idx in range(client_num):
-                    model, train_loader, optimizer = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
-                    if a == 'fedprox':
-                        if a_iter > 0:
-                            train_fedprox(args, model, train_loader, optimizer, loss_fun, client_num, device)
-                        else:
-                            train(model, train_loader, optimizer, loss_fun, client_num, device)
-                    else:
-                        train(model, train_loader, optimizer, loss_fun, client_num, device)
-            
-            # aggregation
-            server_model, models = communication(args, server_model, models, client_weights)
-            
-            # report after aggregation
-            for client_idx in range(client_num):
-                    model, train_loader, optimizer = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
-                    train_loss, train_acc = test(model, train_loader, loss_fun, device) 
-                    print(' {:<11s}| Train Loss: {:.4f} | Train Acc: {:.4f}'.format(datasets[client_idx] ,train_loss, train_acc))
-                
-                    if args.log:
-                        logfile.write(' {:<11s}| Train Loss: {:.4f} | Train Acc: {:.4f}\n'.format(datasets[client_idx] ,train_loss, train_acc))
-            """
-            if(a=='fedavg'):
-                fedavg_train_losses.append(train_loss)
-                print("fedavg_train_losses: ", fedavg_train_losses)
-            elif (a == 'fedbn'):
-                fedbn_train_losses.append(train_loss)
-                print("fedbn_train_losses: ", fedbn_train_losses)
-            else:
-                fedprox_train_losses.append(train_loss)
-                print("fedprox_train_losses: ", fedprox_train_losses)
-    
-            """
-            epoch_test_acc = 0.0
-            # start testing
-            for test_idx, test_loader in enumerate(test_loaders):
-                test_loss, test_acc = test(models[test_idx], test_loader, loss_fun, device)
-                print(' {:<11s}| Test  Loss: {:.4f} | Test  Acc: {:.4f}'.format(datasets[test_idx], test_loss, test_acc))
-                epoch_test_acc+=test_acc
-                print("epoch_test_acc: ",epoch_test_acc)
-            
-                if args.log:
-                    logfile.write(' {:<11s}| Test  Loss: {:.4f} | Test  Acc: {:.4f}\n'.format(datasets[test_idx], test_loss, test_acc))
-            epoch_test_acc=epoch_test_acc/len(test_loaders)
-            if(a=='fedavg'):
-                fedavg_test_accs.append(epoch_test_acc)
-                print("fedavg_test_accs: ", fedavg_test_accs)
-            elif (a == 'fedbn'):
-                fedbn_test_accs.append(epoch_test_acc)
-                print("fedbn_test_accs: ", fedbn_test_accs)
-            else:
-                fedprox_test_accs.append(epoch_test_acc)
-                print("fedprox_test_accs: ", fedprox_test_accs)
   # define the x-axis as the number of epochs
-    epochs = range(len(fedbn_test_accs))
+    epochs = range(len(test_accs))
 
     # plot the accuracies for each model
-    plt.plot(epochs, fedbn_test_accs, label='FedBN')
-    plt.plot(epochs, fedprox_test_accs, label='FedProx')
-    plt.plot(epochs, fedavg_test_accs, label='FedAvg')
+
+    plt.plot(epochs, test_accs, label='fedBN')
+    
 
     # add a legend to the plot
     plt.legend()
@@ -454,7 +348,7 @@ if __name__ == '__main__':
     # add x and y axis labels and a title
     plt.xlabel('Epochs')
     plt.ylabel('Testing Accuracy %')
-    plt.title('Comparison of Testing Accuracies for Three Models')
+    #plt.title('Comparison of Testing Accuracies for Three Models')
 
     # save the plot as a PNG file
     plt.savefig('test_accuracies.png')
@@ -462,143 +356,7 @@ if __name__ == '__main__':
     # display the plot
     plt.show()
 
-    
-    # define the x-axis as the number of epochs
-    epochs = range(len(fedbn_train_losses))
 
-    # plot the accuracies for each model
-    plt.plot(epochs, fedbn_train_losses, label='FedBN')
-    plt.plot(epochs, fedprox_train_losses, label='FedProx')
-    plt.plot(epochs, fedavg_train_losses, label='FedAvg')
-
-    # add a legend to the plot
-    plt.legend()
-
-    # add x and y axis labels and a title
-    plt.xlabel('Epochs')
-    plt.ylabel('training loss')
-
-
-    # save the plot as a PNG file
-    plt.savefig('train_loss.png')
-
-    # display the plot
-    plt.show()
-    """
-    for a_iter in range(resume_iter, args.iters):
-        optimizers = [optim.SGD(params=models[idx].parameters(), lr=args.lr) for idx in range(client_num)]
-        for wi in range(args.wk_iters):
-            print("============ Train epoch {} ============".format(wi + a_iter * args.wk_iters))
-            if args.log: logfile.write("============ Train epoch {} ============\n".format(wi + a_iter * args.wk_iters)) 
-            
-            for client_idx in range(client_num):
-                model, train_loader, optimizer = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
-                if args.mode.lower() == 'fedprox':
-                    if a_iter > 0:
-                        train_fedprox(args, model, train_loader, optimizer, loss_fun, client_num, device)
-                    else:
-                        train(model, train_loader, optimizer, loss_fun, client_num, device)
-                else:
-                    train(model, train_loader, optimizer, loss_fun, client_num, device)
-         
-        # aggregation
-        server_model, models = communication(args, server_model, models, client_weights)
-        
-        # report after aggregation
-        for client_idx in range(client_num):
-                model, train_loader, optimizer = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
-                train_loss, train_acc = test(model, train_loader, loss_fun, device) 
-                print(' {:<11s}| Train Loss: {:.4f} | Train Acc: {:.4f}'.format(datasets[client_idx] ,train_loss, train_acc))
-            
-                if args.log:
-                    logfile.write(' {:<11s}| Train Loss: {:.4f} | Train Acc: {:.4f}\n'.format(datasets[client_idx] ,train_loss, train_acc))
-        train_losses.append(train_loss)
-        print("train_losses: ", train_losses)
-                    
-
-        # start testing
-        for test_idx, test_loader in enumerate(test_loaders):
-            test_loss, test_acc = test(models[test_idx], test_loader, loss_fun, device)
-            print(' {:<11s}| Test  Loss: {:.4f} | Test  Acc: {:.4f}'.format(datasets[test_idx], test_loss, test_acc))
-        
-            if args.log:
-                logfile.write(' {:<11s}| Test  Loss: {:.4f} | Test  Acc: {:.4f}\n'.format(datasets[test_idx], test_loss, test_acc))
-        test_accs.append(test_acc)
-        print("test_accs: ", test_accs)
-      
-      # plot train loss
-    fig, ax = plt.subplots()
-    x_axis = np.arange(1, args.iters+1)
-    y_axis = np.array(train_losses)
-    ax.plot(x_axis, y_axis, color="red")
-    ax.set(xlabel='Number of Rounds', ylabel='Train Loss',title="fedbn")
-    ax.grid()
-    fig.savefig("svhb_train"+'.jpg', format='jpg')
-      # plot test accuracy
-    fig1, ax1 = plt.subplots()
-    x_axis1 = np.arange(1, args.iters+1)
-    y_axis1 = np.array(test_accs)
-    ax1.plot(x_axis1, y_axis1, color="blue")
-    ax1.set(xlabel='Number of Rounds', ylabel='Test Accuracy', title="fedbn")
-    ax1.grid()
-    fig1.savefig("svhn_test"+'-test.jpg', format='jpg')
-    # Save checkpoint
-    print(' Saving checkpoints to {}...'.format(SAVE_PATH))
-    if args.mode.lower() == 'fedbn':
-        torch.save({
-            'model_0': models[0].state_dict(),
-            'model_1': models[1].state_dict(),
-            'model_2': models[2].state_dict(),
-            'model_3': models[3].state_dict(),
-            'model_4': models[4].state_dict(),
-            'server_model': server_model.state_dict(),
-        }, SAVE_PATH)
-    else:
-        torch.save({
-            'server_model': server_model.state_dict(),
-        }, SAVE_PATH)
-
-    if log:
-        logfile.flush()
-        logfile.close()
-
-
-    # start training
-    for a_iter in range(resume_iter, args.iters):
-        optimizers = [optim.SGD(params=models[idx].parameters(), lr=args.lr) for idx in range(client_num)]
-        for wi in range(args.wk_iters):
-            print("============ Train epoch {} ============".format(wi + a_iter * args.wk_iters))
-            if args.log: logfile.write("============ Train epoch {} ============\n".format(wi + a_iter * args.wk_iters)) 
-            
-            for client_idx in range(client_num):
-                model, train_loader, optimizer = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
-                if args.mode.lower() == 'fedprox':
-                    if a_iter > 0:
-                        train_fedprox(args, model, train_loader, optimizer, loss_fun, client_num, device)
-                    else:
-                        train(model, train_loader, optimizer, loss_fun, client_num, device)
-                else:
-                    train(model, train_loader, optimizer, loss_fun, client_num, device)
-         
-        # aggregation
-        server_model, models = communication(args, server_model, models, client_weights)
-        
-        # report after aggregation
-        for client_idx in range(client_num):
-                model, train_loader, optimizer = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
-                train_loss, train_acc = test(model, train_loader, loss_fun, device) 
-                print(' {:<11s}| Train Loss: {:.4f} | Train Acc: {:.4f}'.format(datasets[client_idx] ,train_loss, train_acc))
-                if args.log:
-                    logfile.write(' {:<11s}| Train Loss: {:.4f} | Train Acc: {:.4f}\n'.format(datasets[client_idx] ,train_loss, train_acc))\
-                    
-
-        # start testing
-        for test_idx, test_loader in enumerate(test_loaders):
-            test_loss, test_acc = test(models[test_idx], test_loader, loss_fun, device)
-            print(' {:<11s}| Test  Loss: {:.4f} | Test  Acc: {:.4f}'.format(datasets[test_idx], test_loss, test_acc))
-            if args.log:
-                logfile.write(' {:<11s}| Test  Loss: {:.4f} | Test  Acc: {:.4f}\n'.format(datasets[test_idx], test_loss, test_acc))
-  """
     # Save checkpoint
     print(' Saving checkpoints to {}...'.format(SAVE_PATH))
     if args.mode.lower() == 'fedbn':
