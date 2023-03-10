@@ -173,7 +173,7 @@ def test(model, test_loader, loss_fun, device):
 
     for data, target in test_loader:
         data = data.to(device).float()
-        target = target.to(device).long()
+        target = target.to(device).long().squeeze()
         targets.append(target.detach().cpu().numpy())
 
         output = model(data)
@@ -221,6 +221,7 @@ if __name__ == '__main__':
     torch.manual_seed(seed)     
     torch.cuda.manual_seed_all(seed) 
 
+    test_accs=[]
     print('Device:', device)
     parser = argparse.ArgumentParser()
     parser.add_argument('--log', action='store_true', help ='whether to make a log')
@@ -259,7 +260,7 @@ if __name__ == '__main__':
    
    
     server_model = Net(1,11).to(device)
-    loss_fun = nn.BCEWithLogitsLoss()
+    loss_fun = nn.CrossEntropyLoss()
 
     # prepare the data
     train_loaders, test_loaders = prepare_data()
@@ -310,7 +311,6 @@ if __name__ == '__main__':
             if args.log: logfile.write("============ Train epoch {} ============\n".format(wi + a_iter * args.wk_iters)) 
             
             for client_idx in range(client_num):
-                print("still good0")
                 model, train_loader, optimizer = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
                 if args.mode.lower() == 'fedprox':
                     if a_iter > 0:
@@ -322,7 +322,6 @@ if __name__ == '__main__':
          
         # aggregation
         server_model, models = communication(args, server_model, models, client_weights)
-        print("still good1")
         # report after aggregation
         for client_idx in range(client_num):
                 model, train_loader, optimizer = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
@@ -332,11 +331,37 @@ if __name__ == '__main__':
                     logfile.write(' {:<11s}| Train Loss: {:.4f} | Train Acc: {:.4f}\n'.format(datasets[client_idx] ,train_loss, train_acc))\
 
         # start testing
+        epoch_test_acc=0.0
         for test_idx, test_loader in enumerate(test_loaders):
             test_loss, test_acc = test(models[test_idx], test_loader, loss_fun, device)
             print(' {:<11s}| Test  Loss: {:.4f} | Test  Acc: {:.4f}'.format(datasets[test_idx], test_loss, test_acc))
+            epoch_test_acc+=test_acc
             if args.log:
                 logfile.write(' {:<11s}| Test  Loss: {:.4f} | Test  Acc: {:.4f}\n'.format(datasets[test_idx], test_loss, test_acc))
+        epoch_test_acc=epoch_test_acc/len(test_loaders)
+        test_accs.append(epoch_test_acc)
+        print("test_accs: ", test_accs)
+    # define the x-axis as the number of epochs
+    epochs = range(len(test_accs))
+
+    # plot the accuracies for each model
+
+    plt.plot(epochs, test_accs, label='fedBN')
+    
+
+    # add a legend to the plot
+    plt.legend()
+
+    # add x and y axis labels and a title
+    plt.xlabel('Epochs')
+    plt.ylabel('Testing Accuracy %')
+    #plt.title('Comparison of Testing Accuracies for Three Models')
+
+    # save the plot as a PNG file
+    plt.savefig('test_accuracies.png')
+
+    # display the plot
+    plt.show()
 
     # Save checkpoint
     print(' Saving checkpoints to {}...'.format(SAVE_PATH))
