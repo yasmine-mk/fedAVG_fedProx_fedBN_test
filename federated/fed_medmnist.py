@@ -8,6 +8,7 @@ sys.path.append(base_path)
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from tqdm import tqdm
 from torch.utils.data import TensorDataset
 import torch.utils.data as data
 import torchvision
@@ -80,7 +81,7 @@ def prepare_data():
     test_loaders  = [organamnist_test_loader, organcmnist_test_loader, organsmnist_test_loader]
 
     return train_loaders, test_loaders
-
+"""
 def train(model, train_loader, optimizer, loss_fun, client_num, device):
     model.train()
     num_data = 0
@@ -103,6 +104,33 @@ def train(model, train_loader, optimizer, loss_fun, client_num, device):
         pred = output.data.max(1)[1]
         correct += pred.eq(y.view(-1)).sum().item()
     return loss_all/len(train_iter), correct/num_data
+"""
+def train(model, train_loader, optimizer, criterion,client_num, task):
+    train_correct = 0
+    train_total = 0
+    model.train()
+    for inputs, targets in tqdm(train_loader):
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        
+        if task == 'multi-label, binary-class':
+            targets = targets.to(torch.float32)
+            loss = criterion(outputs, targets)
+        else:
+            targets = targets.squeeze().long()
+            loss = criterion(outputs, targets)
+        
+        loss.backward()
+        optimizer.step()
+        
+        _, predicted = torch.max(outputs.data, 1)
+        train_total += targets.size(0)
+        train_correct += (predicted == targets).sum().item()
+    
+    train_acc = train_correct / train_total
+    train_loss = loss.item()
+    
+    return train_loss, train_acc
 
 def train_fedprox(args, model, train_loader, optimizer, loss_fun, client_num, device):
     model.train()
@@ -282,6 +310,7 @@ if __name__ == '__main__':
             if args.log: logfile.write("============ Train epoch {} ============\n".format(wi + a_iter * args.wk_iters)) 
             
             for client_idx in range(client_num):
+                print("still good0")
                 model, train_loader, optimizer = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
                 if args.mode.lower() == 'fedprox':
                     if a_iter > 0:
@@ -293,7 +322,7 @@ if __name__ == '__main__':
          
         # aggregation
         server_model, models = communication(args, server_model, models, client_weights)
-        
+        print("still good1")
         # report after aggregation
         for client_idx in range(client_num):
                 model, train_loader, optimizer = models[client_idx], train_loaders[client_idx], optimizers[client_idx]
