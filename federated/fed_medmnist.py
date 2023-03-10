@@ -31,7 +31,6 @@ download = True
 
 
 def prepare_data():
-    # Prepare data
     transform_organamnist = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=[.5], std=[.5])
@@ -110,6 +109,7 @@ def train(model, train_loader, optimizer, criterion,client_num, task):
     train_total = 0
     model.train()
     for inputs, targets in tqdm(train_loader):
+        inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = model(inputs)
         
